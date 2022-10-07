@@ -132,7 +132,8 @@ def hello(request):
             break
         j += 1
     print(id_startline)
-    output_A = lines[:id_startline-1]
+    output_A = lines[1:id_startline-1]
+    output_A.insert(0, generate_timestamp() + " GMT+8")
     lines = lines[id_startline:]
     j = 0
     for line in lines:
