@@ -1,0 +1,5 @@
+build
+idscheck.egg-info
+dist
+__pycache__
+idscheckserver/idscheckserver/dbconfig.py
