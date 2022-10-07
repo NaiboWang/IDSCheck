@@ -1,6 +1,6 @@
 # IDS Check
 
-A library for ids friends to check the GPU and CPU utilization by simple command line commands.
+A library for docker users to check the GPU and CPU utilization by simple command line commands.
 
 ## Install
 
@@ -66,7 +66,7 @@ Example Outputs are:
 +-------------------------------+----------------------+----------------------+
 
 +-------+---------+--------------+-----------------+-----------+---------------------------+
-| GPUID |   PID   | Process Name | Used GPU Memory |    User   |      Email Addresses      |
+| GPUID |   PID   | Process Name | Used GPU Memory |    User   |      Email Address        |
 +-------+---------+--------------+-----------------+-----------+---------------------------+
 |     0 | 1302626 | python_naibo |         3821MiB |   naibo   | naibowang@comp.nus.edu.sg |
 |     1 | 1584227 | python_naibo |         3831MiB |   naibo   | naibowang@comp.nus.edu.sg |
@@ -140,16 +140,7 @@ ids top | grep 423426
 Example Output:
 
 ```
-Process Information:
-PID	USER	PR	NI	VIRT	RES	SHR	S	%CPU	%MEM	TIME+	COMMAND	
-top - 08:56:15 up 37 days,  6:56,  5 users,  load average: 460.91, 418.71, 390.7
-Tasks: 2727 total,  12 running, 2714 sleeping,   0 stopped,   1 zombie
-%Cpu(s): 60.6 us,  0.4 sy,  0.0 ni, 39.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem : 1031871.+total, 588294.4 free, 124403.6 used, 319173.8 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used. 902058.1 avail Mem
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
 4189111 naibo     20   0   19.8g   6.0g  43720 S  2270   0.6 120124:48 python
-
 ```
 
 ### Check User Information to contact them
@@ -166,7 +157,7 @@ Example Output:
 |  Username    |       Email Address       |
 +--------------+---------------------------+
 |   naibo      | naibowang@comp.nus.edu.sg |
-|   xiaoming   |                           |
+|   xiaoming   |     xiaoming@test.com     |
 +--------------+---------------------------+
 ```
 
