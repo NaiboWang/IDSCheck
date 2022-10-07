@@ -148,23 +148,23 @@ def hello(request):
     processes = lines[id_firstline+1:id_lastline]
     hostname = socket.gethostname()
     userlist = list(idscheck_servers.find({"hostname": hostname}))
-    output = PrettyTable(["GPUID", "PID", "Process Name",
-                         "Used GPU Memory", "User", "Email Address"])
+    output = PrettyTable(["GPUID", "User", "Email Address",
+                         "Used GPU Memory", "Process Name", "PID"])
     output.align["GPUID"] = 'r'
     output.align["Used GPU Memory"] = 'r'
     GPUINFO = []
     for line in processes:
         content = ' '.join(line.split())
         parameters = content.split(" ")
-        GPUINFO.append([parameters[1], parameters[4],
-                       parameters[6], parameters[7]])
+        GPUINFO.append([parameters[1], parameters[7],
+                       parameters[6], parameters[4]])
         c, std, err = run_cmd(
             'ps -p ' + parameters[4] + ' -o user', request=request)
         username = std.decode("utf-8").split("\n")[1]
-        GPUINFO[-1].append(username)
+        GPUINFO[-1].insert(1, username)
         for user in userlist:
             if user['username'] == username:
-                GPUINFO[-1].append(user['email'])
+                GPUINFO[-1].insert(2, user['email'])
                 break
     # print(GPUINFO)
     for info in GPUINFO:
