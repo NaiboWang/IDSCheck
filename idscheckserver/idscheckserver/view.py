@@ -87,7 +87,7 @@ def run_cmd(_cmd, request=None):
     return _RunCmdReturn, b'\n'.join(_RunCmdStdout), p.stderr.read()
 
 
-def insert_log(request, command_name):
+def insert_log(request, command_name, output):
     import socket
     # 获取本机计算机名称
     hostname = socket.gethostname()
@@ -104,6 +104,7 @@ def insert_log(request, command_name):
         "ip": request.META['REMOTE_ADDR'],
         "cmd": command_name,
         "time": generate_timestamp(),
+        "output": output,
     })
 
 
@@ -114,7 +115,8 @@ def query(request):
     # output.align["Value"] = 'l'
     for user in userlist:
         output.add_row([user['username'], user['email']])
-    insert_log(request, 'query')
+
+    insert_log(request, 'query', output.get_string().split("\n"))
     return HttpResponse(output.get_string()+"\n")
 
 
@@ -172,28 +174,31 @@ def hello(request):
     print(output)
     # code, stdout2, stderr = run_cmd(
     #     'top -b -n 1 | grep -v root', request=request)
-    insert_log(request, 'idscheck')
+    return_results = "\n".join(output_A)+'\n\n' + output.get_string() + '\n'
+    insert_log(request, 'idscheck', return_results.split("\n"))
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
-    return HttpResponse("\n".join(output_A)+'\n\n' + output.get_string() + '\n')
+    return HttpResponse(return_results)
 
 
 def gpu(request):
     code, stdout, stderr = run_cmd('nvidia-smi', request=request)
-    insert_log(request, 'gpu')
+    insert_log(request, 'gpu', stdout.decode("utf-8").split("\n"))
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
     return HttpResponse(stdout+b'\n')
 
 
 def top_all(request):
     code, stdout, stderr = run_cmd('top -b -n 1', request=request)
-    insert_log(request, 'top_all')
+    output = b'Process Information:\nPID\tUSER\tPR\tNI\tVIRT\tRES\tSHR\tS\t%CPU\t%MEM\tTIME+\tCOMMAND\t\n' + stdout + b'\n'
+    insert_log(request, 'top_all', output.decode("utf-8").split("\n"))
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
-    return HttpResponse(b'Process Information:\nPID\tUSER\tPR\tNI\tVIRT\tRES\tSHR\tS\t%CPU\t%MEM\tTIME+\tCOMMAND\t\n' + stdout + b'\n')
+    return HttpResponse(output)
 
 
 def top(request):
     code, stdout, stderr = run_cmd(
         'top -b -n 1 | grep -v root', request=request)
-    insert_log(request, 'top')
+    output = b'Process Information:\nPID\tUSER\tPR\tNI\tVIRT\tRES\tSHR\tS\t%CPU\t%MEM\tTIME+\tCOMMAND\t\n' + stdout + b'\n'
+    insert_log(request, 'top', output.decode("utf-8").split("\n"))
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
-    return HttpResponse(b'Process Information:\nPID\tUSER\tPR\tNI\tVIRT\tRES\tSHR\tS\t%CPU\t%MEM\tTIME+\tCOMMAND\t\n' + stdout + b'\n')
+    return HttpResponse(output)
