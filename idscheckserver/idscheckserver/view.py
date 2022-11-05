@@ -266,8 +266,17 @@ def real_gpu(request):
 def gpu(request):
     return HttpResponse("Your tool is outdated, please update your tool to the latest version with the following command: \npip3 install idscheck --upgrade\n")
 
-def get_notify_users():
+def get_notify_users(request=None):
     hostname = socket.gethostname()
+    if request is not None:
+        print(request.META['REMOTE_ADDR'], hostname)
+        username_info = list(idscheck_servers.find(
+                    {"ip": request.META['REMOTE_ADDR'],
+                        "hostname": hostname,
+                    }))[-1]
+        nickname = username_info['nickname']
+    else:
+        nickname = "unknown"
     _, GPU_REAl = get_gpu_info()
     # print(GPU_REAl)
     userList = {}
@@ -283,7 +292,7 @@ def get_notify_users():
     all_occupied_gpus = list(set(all_occupied_gpus))
 
     user_GPU = {}
-
+    
     for user in userList:
         user_GPU_info = userList[user]
         for gpu_info in user_GPU_info:
@@ -294,12 +303,17 @@ def get_notify_users():
                     user_GPU[gpu_info[1]].append(gpu_info[0])
     print("user_GPU", user_GPU)
     notify_users = set()
-    
+    user_current_GPUS = set()
     for user in user_GPU:
         print(user, user_GPU[user])
         if len(user_GPU[user]) > 2:
             notify_users.add((userList[user][0][1], userList[user][0][2], userList[user][0][3]))
-        
+        if user == nickname:
+            user_current_GPUS = set(user_GPU[user])
+    
+    print("notify_users", notify_users)
+    print("user_current_GPUS", user_current_GPUS)
+
     if hostname.find("2") >=0:
         gpus = set([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
     else:
@@ -309,10 +323,11 @@ def get_notify_users():
 
     print("all_occupied_gpus", all_occupied_gpus)
     print("avaiable_gpus", avaiable_gpus)
-    if len(avaiable_gpus) < 2:
+    if len(avaiable_gpus) + len(user_current_GPUS) < 2:
         notify = True
     else:
         notify = False
+    # notify = False
     notify_users = list(notify_users)
     return notify, notify_users, avaiable_gpus
 
@@ -323,7 +338,7 @@ def gpu_notify(request):
     bcc_email, bcc_nickname = insert_log(request, 'notify', 'notify')
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
     # return HttpResponse(stdout+b'\n')
-    notify, notify_users, avaiable_gpus = get_notify_users()
+    notify, notify_users, avaiable_gpus = get_notify_users(request)
 
     if notify:
         for notify_user in notify_users:
@@ -367,7 +382,10 @@ def gpu_notify(request):
             idscheck_tasks.insert_one({"nickname": notify_user[0], "email": email_address, "bcc_nickname": bcc_nickname,"bcc_email": bcc_email, "server": hostname, "time": datetime.datetime.now(),  "final_handle_time": datetime.datetime.now() + datetime.timedelta(hours=24), "Status": "Pending"})
         return HttpResponse('Notification has already sent to all users occupied more than two GPUs and also Bcc you (they will not know that it is you who submit this request, don\'t worry).\n')
     else:
-        return HttpResponse('Still at least two GPUs (ID: %s) available, no notification is needed.\n' % avaiable_gpus)
+        if len(avaiable_gpus) < 2:
+            return HttpResponse('You are already using at least two GPUs (or you are using one GPU and another one GPU is available) now, therefore no notification is needed.\n')
+        else:
+            return HttpResponse('Still at least two GPUs (ID: %s) available now, therefore no notification is needed.\n' % avaiable_gpus)
 
 def top_all(request):
     code, stdout, stderr = run_cmd('top -b -n 1', request=request)
