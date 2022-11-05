@@ -22,7 +22,7 @@ with open("README.md", "r",  encoding='UTF-8') as fh:
 
 setuptools.setup(
     name="idscheck",
-    version="1.0.1",
+    version="2.1.1",
     author="Naibo Wang",
     author_email="naibowang@foxmail.com",
     description="A command line tool for IDS student to check GPU allocation",
@@ -35,6 +35,7 @@ setuptools.setup(
         'console_scripts': [
             'ids = idscheck.idscheck:cmd',
             'idsgpu = idscheck.idscheck:gpu',
+            'idsnotify = idscheck.idscheck:notify',
             'idstop = idscheck.idscheck:top',
             'idstopall = idscheck.idscheck:topall',
             'idsquery = idscheck.idscheck:query',

@@ -24,4 +24,6 @@ urlpatterns = [
     path('top', view.top),
     path('top_all', view.top_all),
     path('query', view.query),
+    path('gpu_notify', view.gpu_notify),
+    path('real_gpu', view.real_gpu),
 ]

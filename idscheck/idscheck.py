@@ -18,19 +18,27 @@ def cmd():
     if len(args) == 1:
         status = os.system("curl http://"+get_ip()+":8080")
     elif args[-1] == "gpu":
-        status = os.system("curl http://"+get_ip()+":8080/gpu")
+        gpu()
     elif args[-1] == "top":
         status = os.system("curl http://"+get_ip()+":8080/top")
     elif args[-1] == "topall":
         status = os.system("curl http://"+get_ip()+":8080/top_all")
     elif args[-1] == "query":
         status = os.system("curl http://"+get_ip()+":8080/query")
+    elif args[-1] == "notify":
+        notify()
     else:
-        print("Usage: ids [(Null)|gpu|top|topall]")
+        print("Usage: ids [(Null)|top|topall|notify|query|gpu]")
 
 
 def gpu():
-    status = os.system("curl http://"+get_ip()+":8080/gpu")
+    notify()
+
+def notify():
+    print("Do you really want to notify other users to free up GPU resources? (y/n): ", end="")
+    ans = input()
+    if ans == "y":
+        status = os.system("curl http://"+get_ip()+":8080/gpu_notify")
 
 
 def top():
@@ -43,3 +51,6 @@ def topall():
 
 def query():
     status = os.system("curl http://"+get_ip()+":8080/query")
+
+if __name__ == "__main__":
+    cmd()

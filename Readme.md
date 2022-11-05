@@ -164,3 +164,28 @@ Example Output:
 ### Check All processes' information
 
 Use `idstopall` or `ids topall` to get all the processes' information, including the `root` user of the server.
+
+
+### Notify other users
+
+If you want to use GPU but you cannot find 2 GPUs at your server, you can use the idscheck tool to notify and make the users who occupied more than 2 GPUs to free their GPUs for you, the instructions are as follows:
+
+1.	Upgrade/Install the idscheck tool via pip3:
+
+pip3 install idscheck –upgrade
+
+2.	Check the GPU utilization first to make sure you cannot find any GPU available:
+
+ids
+3.	(Optional) To check CPU utilization, you can use:
+
+Idstop
+
+4.	Then you can notify the users by “idsgpu” or “idsnotify”:
+
+Idsgpu
+
+5.	Then you and the over-used users will receive an email to notify them to free their GPUs within 24 hours, and they will not see your email address so that you don’t need to worry about the possible friction.
+6.	Then at most 24 hours later, you will receive an email that says you can now use GPU, because when exceed 24 hours and they still don’t kill their processes, the system will automatically kill all their processes.
+7.	If they really need to use the GPUs, such as they are meeting the paper deadline, they will send me an email and I will tell you this situation, and let you know when is the earliest time you can get access to the GPU, if you agree that’s good, if you don’t agree, we can build an anonymous group to negotiate.
+
