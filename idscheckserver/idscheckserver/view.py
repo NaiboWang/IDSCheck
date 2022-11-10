@@ -604,7 +604,7 @@ if __name__ == "__main__":
     hostname = socket.gethostname()
     try:
         userInfo = list(idscheck_servers.find({"server": hostname}))
-        with open("idscheck_server_info.json", "w") as f:
+        with open("idscheckserver/idscheck_servers.json", "w") as f:
             json.dump(userInfo, f)
             f.close()
     except:
