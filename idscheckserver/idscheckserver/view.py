@@ -38,7 +38,7 @@ try:
         print("USERLISTS", USERLISTS)
         f.close()
 except:
-    with open('idscheckserver/idscheck_servers.json', 'r') as f: # for crontab, need to add path
+    with open('/home/techsupport/idscheckserver/idscheck_servers.json', 'r') as f: # for crontab, need to add path
         USERLISTS = json.load(f)
         print("USERLISTS", USERLISTS)
         f.close()
@@ -601,11 +601,20 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(SCRIPT_DIR))
     from dbconfig import *
     from Mail import Sample
+    myclient = pymongo.MongoClient(
+    dbc, connect=False)
+    mydb = myclient['ids']
+    idscheck_logs = mydb["idscheck_logs"]
+    idscheck_servers = mydb["idscheck_servers"]
+    idscheck_tasks = mydb["idscheck_tasks"]
+    idscheck_zombie = mydb["idscheck_zombie"]
     hostname = socket.gethostname()
     try:
-        userInfo = list(idscheck_servers.find({"server": hostname}))
-        with open("idscheckserver/idscheck_servers.json", "w") as f:
-            json.dump(userInfo, f)
+        print("hostname", hostname)
+        userInfo = list(idscheck_servers.find({"hostname": hostname}))
+        print("userInfo", userInfo)
+        with open("/home/techsupport/idscheckserver/idscheck_servers.json", "w") as f:
+            json.dump(json.loads(json_util.dumps(userInfo)), f)
             f.close()
     except:
         print("No server info found, use local info")
