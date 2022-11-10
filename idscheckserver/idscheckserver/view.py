@@ -15,16 +15,33 @@ from bson import json_util
 import subprocess
 from prettytable import PrettyTable
 from django.core.cache import cache
-
+import socket
 from threading import Timer
 import sys
 import os
+import time
+import re
+import subprocess
 
+# USERLISTS = []
 try:
     from .dbconfig import *
     from .Mail import Sample
 except:
     pass
+
+print("当前路径:", os.getcwd())
+
+try:
+    with open('idscheck_servers.json', 'r') as f:
+        USERLISTS = json.load(f)
+        print("USERLISTS", USERLISTS)
+        f.close()
+except:
+    with open('idscheckserver/idscheck_servers.json', 'r') as f: # for crontab, need to add path
+        USERLISTS = json.load(f)
+        print("USERLISTS", USERLISTS)
+        f.close()
 
 class TimeUtil(object):
     @classmethod
@@ -58,6 +75,20 @@ class TimeUtil(object):
         else:
             raise Exception('dont parse timezone format')
 
+def record_log(info):
+    print(info)
+    with open('server.log', 'a') as f:
+        f.write(info + '\n')
+        f.close()
+
+
+def find(arr, conditions):
+    def func(x):
+        for k, v in conditions.items():
+            if x[k] != v:
+                return False
+        return True
+    return list(filter(func, arr))
 
 def generate_timestamp():
     current_GMT = time.gmtime()
@@ -71,6 +102,7 @@ def generate_timestamp():
 
 
 def run_cmd(_cmd, request=None):
+    # print("USERLISTS:", USERLISTS)
     """
     开启子进程，执行对应指令，控制台打印执行过程，然后返回子进程执行的状态码和执行返回的数据
     :param _cmd: 子进程命令
@@ -94,22 +126,30 @@ def run_cmd(_cmd, request=None):
 
 
 def insert_log(request, command_name, output):
+    username = "unknown"
+    email = "982311099@qq.com"
+    nickname = "unknown"
+    # 获取本机计算机名称
+    hostname = socket.gethostname()
+    # try:
+    #     username_info = list(idscheck_servers.find(
+    #         {"ip": request.META['REMOTE_ADDR'],
+    #             "hostname": hostname,
+    #         }))[-1]
+    # except:
+    #     record_log("query_log: " + username + " " + hostname)
+    username_info = find(USERLISTS, {"ip": request.META['REMOTE_ADDR'],
+                                            "hostname": hostname,
+                                            })[-1]
     try:
-        import socket
-        # 获取本机计算机名称
-        hostname = socket.gethostname()
-        try:
-            username_info = list(idscheck_servers.find(
-                {"ip": request.META['REMOTE_ADDR'],
-                    "hostname": hostname,
-                }))[-1]
-            username = username_info['username']
-            nickname = username_info['nickname']
-            email = username_info['email']
-        except:
-            username = "unknown"
-            email = "982311099@qq.com"
-            nickname = "unknown"
+        username = username_info['username']
+        nickname = username_info['nickname']
+        email = username_info['email']
+    except:
+        username = "unknown"
+        email = "982311099@qq.com"
+        nickname = "unknown"
+    try:
         idscheck_logs.insert_one({
             "username": username,
             "hostname": hostname,
@@ -119,19 +159,28 @@ def insert_log(request, command_name, output):
             "output": output,
         })
     except:
-        pass
+        record_log("insert_log: " + username + " " + hostname)
+        with open('idscheck_logs.log', 'a') as f:
+            f.write(json.dumps({
+                "username": username,
+                "hostname": hostname,
+                "ip": request.META['REMOTE_ADDR'],
+                "cmd": command_name,
+                "time": generate_timestamp(),
+            }))
+            f.close()
     return email, nickname
 
 
 def query(request):
-    hostname = socket.gethostname()
-    userlist = list(idscheck_servers.find({"hostname": hostname}))
-    output = PrettyTable(["Username", "Email Address"])
-    # output.align["Value"] = 'l'
-    for user in userlist:
-        output.add_row([user['username'], user['email']])
-    insert_log(request, 'query', output.get_string().split("\n"))
-    # return HttpResponse(output.get_string()+"\n")
+    # hostname = socket.gethostname()
+    # userlist = list(idscheck_servers.find({"hostname": hostname}))
+    # output = PrettyTable(["Username", "Email Address"])
+    # # output.align["Value"] = 'l'
+    # for user in userlist:
+    #     output.add_row([user['username'], user['email']])
+    # insert_log(request, 'query', output.get_string().split("\n"))
+    # # return HttpResponse(output.get_string()+"\n")
     return HttpResponse('Please contact: naibowang@comp.nus.edu.sg or idsychs@nus.edu.sg to get further help (such as you want someone to free their GPUs for you.)\n')
 
 
@@ -164,7 +213,12 @@ def get_gpu_info():
     print(id_firstline, id_lastline)
     processes = lines[id_firstline+1:id_lastline]
     hostname = socket.gethostname()
-    userlist = list(idscheck_servers.find({"hostname": hostname}))
+    # try:
+    #     userlist = list(idscheck_servers.find({"hostname": hostname}))
+    # except:
+    #     record_log("get_gpu_info: " + hostname)
+    userlist = find(USERLISTS, {"hostname": hostname})
+    print("userlist", userlist)
     output = PrettyTable(["GPUID", "User", 
                          "Used GPU Memory", "Process Name", "PID"])
     output.align["GPUID"] = 'r'
@@ -180,6 +234,7 @@ def get_gpu_info():
                         parameters[6], parameters[4]])
         c, std, err = run_cmd(
             'ps -p ' + parameters[4] + ' -o user', request=request)
+        print(c, std, err)
         username = std.decode("utf-8").split("\n")[1]
         # GPUINFO[-1].insert(1, username)
         for user in userlist:
@@ -233,7 +288,11 @@ def real_gpu(request):
     print(id_firstline, id_lastline)
     processes = lines[id_firstline+1:id_lastline]
     hostname = socket.gethostname()
-    userlist = list(idscheck_servers.find({"hostname": hostname}))
+    # try:
+    #     userlist = list(idscheck_servers.find({"hostname": hostname}))
+    # except:
+    #     record_log("real_gpu: " + hostname)
+    userlist = find(USERLISTS, {"hostname": hostname})
     output = PrettyTable(["GPUID", "User", "Email Address"
                          "Used GPU Memory", "Process Name", "PID"])
     output.align["GPUID"] = 'r'
@@ -270,10 +329,15 @@ def get_notify_users(request=None):
     hostname = socket.gethostname()
     if request is not None:
         print(request.META['REMOTE_ADDR'], hostname)
-        username_info = list(idscheck_servers.find(
-                    {"ip": request.META['REMOTE_ADDR'],
-                        "hostname": hostname,
-                    }))[-1]
+        # try:
+        #     username_info = list(idscheck_servers.find(
+        #                 {"ip": request.META['REMOTE_ADDR'],
+        #                     "hostname": hostname,
+        #                 }))[-1]
+        # except:
+        #     record_log("get_notify_users: " + hostname)
+        username_info = find(USERLISTS, {"ip": request.META['REMOTE_ADDR'],
+                                            "hostname": hostname})[-1]
         nickname = username_info['nickname']
     else:
         nickname = "unknown"
@@ -346,13 +410,11 @@ def gpu_notify(request):
             nickname = notify_user[0]
             server_address = hostname + ".d2.comp.nus.edu.sg"
             msg = """<p>
-            (This is an automatically generated message, <b>but you can directly reply to this email</b> to contact Naibo: naibowang@comp.nus.edu.sg, the assistant server manager of IDS if you have any questions, or you can also contact <b>Sam: idsychs@nus.edu.sg</b>.)
-            </p><p>
             Dear {nickname} (your nickname, if you want to change it, just reply to this email),
             </p><p>
             We have detected that you are using more than 2 GPUs at server <b>{server_address}</b> which affects someone else to use the GPU resources. Thus, we have received other users' requests that need you to free your GPU resources for them to use.
             </p><p>
-            Therefore, please close your processes within 24 hours to make sure that <b>you only occupy at most 2 GPUs</b>, otherwise we <b>will kill all your processes automatically after 24 hours</b>. 
+            Therefore, please close your processes within 24 hours to make sure that <b>you only occupy at most 2 GPUs</b>, otherwise we <b>will kill all your processes after 24 hours</b>. 
             </p><p>
             You can use <b>"ids"</b> command to check the GPU utilization, use <b>"idstop"</b> command to check the CPU utilization, and use <b>"idsgpu"</b> or <b>"idsnotify"</b> command to notify all other user(s) who occupied more than 2 GPUs currently (to use the commands, please use: pip3 install idscheck).
             </p><p>
@@ -364,7 +426,7 @@ def gpu_notify(request):
             </p><p>
             3. If you really need to use more than 2 GPUs (such as <b>you are now meeting a paper deadline</b>), please <b>reply to this email</b> to contact Naibo to explain your situation and <b>tell us when will these GPUs be available</b> and we will let the user who also needs GPUs know your situation and we can then negotiate.
             </p><p>
-            4.	If nobody uses more than 2 GPUs but you still can not get any GPUs, please contact Naibo or Sam for future help.
+            4.	If nobody uses more than 2 GPUs but you still can not get any GPUs, please contact Sam or Naibo for future help.
             <p>
             Thank you very much for your cooperation, if you have any questions, please contact <b>idsychs@nus.edu.sg (Sam)</b> or <b>naibowang@comp.nus.edu.sg (Naibo)</b>.
             </p><p>
@@ -372,7 +434,7 @@ def gpu_notify(request):
             </p><p>
             Naibo Wang
             <br/>
-            Assistant Server Manager of Institute of Data Science
+            Ph.D. Student, Assistant Server Manager of Institute of Data Science
             <br/>
             National University of Singapore
             </p>
@@ -540,87 +602,93 @@ if __name__ == "__main__":
     from dbconfig import *
     from Mail import Sample
     hostname = socket.gethostname()
-    notify, notify_users, avaiable_gpus = get_notify_users()
-    all_tasks = list(idscheck_tasks.find({"Status": "Pending", "server": hostname}))
-    # print(all_tasks)
-    for task in all_tasks:
-        print(task)
-        bcc_email = task["bcc_email"]
-        bcc_nickname = task["bcc_nickname"]
-        email_address = task["email"]
-        nickname = task["nickname"]
-        server = task["server"]
-        final_handle_time = task["final_handle_time"]
-        server_address = hostname + ".d2.comp.nus.edu.sg"
-        if len(avaiable_gpus) >= 2:
-            msg = """<p>
-            (This is an automatically generated message, <b>but you can directly reply to this email</b> to contact Naibo: naibowang@comp.nus.edu.sg, the assistant server manager of IDS if you have any questions, or you can also contact <b>Sam: idsychs@nus.edu.sg</b>.)
-            </p><p style="font-size:16px">
-            Dear <b>{nickname}</b> (your nickname, if you want to change it, just reply to this email),
-            </p><p>
-            We have detected that now at least 2 GPUs are available at server <b>{server_address}</b>, maybe it's your efforts to free GPUs, so <b>thank you</b>! And if it is not you who killed your processes, <b>you don't need to kill your processes to release GPUs any more</b>. You can continue to use the GPUs as you wish.
-            </p><p></p><p style="font-size:16px">
-            Dear <b>{bcc_nickname}</b> (your nickname, if you want to change it, just reply to this email),
-            </p><p>
-            We have detected that now at least 2 GPUs are available at server <b>{server_address}</b>, therefore you can use them now. 
-            </p><p>
-            If you still find that no GPUs are available, it's likely that not only you but also other users who wants to use GPUs are waiting for GPUs and they received the same email as you, so that they occupied the GPUs before you. <b>Under this condition, please reuse the "idsgpu" or "idsnotify" command to notify all users who occupied more than 2 GPUs again.</b> 
-            </p><p>
-            And if nobody uses more than 2 GPUs but you still can not get any GPUs, please contact Naibo or Sam for future help.
-            <p>
-            Thank you very much for your cooperation, if you have any questions, please contact <b>idsychs@nus.edu.sg (Sam)</b> or <b>naibowang@comp.nus.edu.sg (Naibo)</b>.
-            </p><p>
-            Sincerely,
-            </p><p>
-            Naibo Wang
-            <br/>
-            Assistant Server Manager of Institute of Data Science
-            <br/>
-            National University of Singapore
-            </p>
-            """.format(nickname=nickname, server_address=server_address, bcc_nickname=bcc_nickname)
-            Sample.main("Now at least 2 GPUs available at %s server" % hostname, msg, email_address, bcc_email)
-            idscheck_tasks.update_one({"_id": task["_id"]}, {"$set": {"Status": "Finished"}})
-        else:
-            if task["final_handle_time"] < datetime.datetime.now():
-                msg = """<p>
-            (This is an automatically generated message, <b>but you can directly reply to this email</b> to contact Naibo: naibowang@comp.nus.edu.sg, the assistant server manager of IDS if you have any questions, or you can also contact <b>Sam: idsychs@nus.edu.sg</b>.)
-            </p><p style="font-size:16px">
-            Dear <b>{nickname}</b> (your nickname, if you want to change it, just reply to this email),
-            </p><p>
-            We have already killed all of your processes at server <b>{server_address}</b>, therefore you need to restart your processes again and make sure that you will not use more than 2 GPUs at the same time.
-            </p><p></p><p style="font-size:16px">
-            Dear <b>{bcc_nickname}</b> (your nickname, if you want to change it, just reply to this email),
-            </p><p>
-            Now you can use the GPUs at server <b>{server_address}</b>, but please make sure that you will not use more than 2 GPUs at the same time.
-            </p><p>
-            If you still find that no GPUs are available, it's likely that not only you but also other users who wants to use GPUs are waiting for GPUs and they received the same email as you, so that they occupied the GPUs before you. <b>Under this condition, please reuse the "idsgpu" or "idsnotify" command to notify all users who occupied more than 2 GPUs again.</b> 
-            </p><p>
-            And if nobody uses more than 2 GPUs but you still can not get any GPUs, please contact Naibo or Sam for future help.
-            <p>
-            Thank you very much for your cooperation, if you have any questions, please contact <b>idsychs@nus.edu.sg (Sam)</b> or <b>naibowang@comp.nus.edu.sg (Naibo)</b>.
-            </p><p>
-            Sincerely,
-            </p><p>
-            Naibo Wang
-            <br/>
-            Assistant Server Manager of Institute of Data Science
-            <br/>
-            National University of Singapore
-            </p>
-            """.format(nickname=nickname, server_address=server_address, bcc_nickname=bcc_nickname)
-                Sample.main("Your processes has already been killed at server %s" % hostname, msg, email_address, bcc_email)
-                return_results, GPU_REAl = get_gpu_info()
-                # print(GPU_REAl)
-                for gpu in GPU_REAl:
-                    if gpu[1] == nickname:
-                        pid = gpu[-1]
-                        # pid = "860165"
-                        cmd = "kill -9 %s" % pid
-                        print(cmd)
-                        os.system(cmd)
+    try:
+        userInfo = list(idscheck_servers.find({"server": hostname}))
+        with open("idscheck_server_info.json", "w") as f:
+            json.dump(userInfo, f)
+            f.close()
+    except:
+        print("No server info found, use local info")
+    kill_zombie_tasks()
+    try:
+        notify, notify_users, avaiable_gpus = get_notify_users()
+        all_tasks = list(idscheck_tasks.find({"Status": "Pending", "server": hostname}))
+        # print(all_tasks)
+        for task in all_tasks:
+            print(task)
+            bcc_email = task["bcc_email"]
+            bcc_nickname = task["bcc_nickname"]
+            email_address = task["email"]
+            nickname = task["nickname"]
+            server = task["server"]
+            final_handle_time = task["final_handle_time"]
+            server_address = hostname + ".d2.comp.nus.edu.sg"
+            if len(avaiable_gpus) >= 2:
+                msg = """<p style="font-size:16px">
+                Dear <b>{nickname}</b> (your nickname, if you want to change it, just reply to this email),
+                </p><p>
+                We have detected that now at least 2 GPUs are available at server <b>{server_address}</b>, maybe it's your efforts to free GPUs, so <b>thank you</b>! And if it is not you who killed your processes, <b>you don't need to kill your processes to release GPUs any more</b>. You can continue to use the GPUs as you wish.
+                </p><p></p><p style="font-size:16px">
+                Dear <b>{bcc_nickname}</b> (your nickname, if you want to change it, just reply to this email),
+                </p><p>
+                We have detected that now at least 2 GPUs are available at server <b>{server_address}</b>, therefore you can use them now. 
+                </p><p>
+                If you still find that no GPUs are available, it's likely that not only you but also other users who wants to use GPUs are waiting for GPUs and they received the same email as you, so that they occupied the GPUs before you. <b>Under this condition, please reuse the "idsgpu" or "idsnotify" command to notify all users who occupied more than 2 GPUs again.</b> 
+                </p><p>
+                And if nobody uses more than 2 GPUs but you still can not get any GPUs, please contact Sam or Naibo for future help.
+                <p>
+                Thank you very much for your cooperation, if you have any questions, please contact <b>idsychs@nus.edu.sg (Sam)</b> or <b>naibowang@comp.nus.edu.sg (Naibo)</b>.
+                </p><p>
+                Sincerely,
+                </p><p>
+                Naibo Wang
+                <br/>
+                Ph.D. Student, Assistant Server Manager of Institute of Data Science
+                <br/>
+                National University of Singapore
+                </p>
+                """.format(nickname=nickname, server_address=server_address, bcc_nickname=bcc_nickname)
+                Sample.main("Now at least 2 GPUs available at %s server" % hostname, msg, email_address, bcc_email)
                 idscheck_tasks.update_one({"_id": task["_id"]}, {"$set": {"Status": "Finished"}})
             else:
-                print("Not time yet")
-    kill_zombie_tasks()
-    
+                if task["final_handle_time"] < datetime.datetime.now():
+                    msg = """<p style="font-size:16px">
+                Dear <b>{nickname}</b> (your nickname, if you want to change it, just reply to this email),
+                </p><p>
+                We have already killed all of your processes at server <b>{server_address}</b>, therefore you need to restart your processes again and make sure that you will not use more than 2 GPUs at the same time.
+                </p><p></p><p style="font-size:16px">
+                Dear <b>{bcc_nickname}</b> (your nickname, if you want to change it, just reply to this email),
+                </p><p>
+                Now you can use the GPUs at server <b>{server_address}</b>, but please make sure that you will not use more than 2 GPUs at the same time.
+                </p><p>
+                If you still find that no GPUs are available, it's likely that not only you but also other users who wants to use GPUs are waiting for GPUs and they received the same email as you, so that they occupied the GPUs before you. <b>Under this condition, please reuse the "idsgpu" or "idsnotify" command to notify all users who occupied more than 2 GPUs again.</b> 
+                </p><p>
+                And if nobody uses more than 2 GPUs but you still can not get any GPUs, please contact Sam or Naibo for future help.
+                <p>
+                Thank you very much for your cooperation, if you have any questions, please contact <b>idsychs@nus.edu.sg (Sam)</b> or <b>naibowang@comp.nus.edu.sg (Naibo)</b>.
+                </p><p>
+                Sincerely,
+                </p><p>
+                Naibo Wang
+                <br/>
+                Ph.D. Student, Assistant Server Manager of Institute of Data Science
+                <br/>
+                National University of Singapore
+                </p>
+                """.format(nickname=nickname, server_address=server_address, bcc_nickname=bcc_nickname)
+                    Sample.main("Your processes has already been killed at server %s" % hostname, msg, email_address, bcc_email)
+                    return_results, GPU_REAl = get_gpu_info()
+                    # print(GPU_REAl)
+                    for gpu in GPU_REAl:
+                        if gpu[1] == nickname:
+                            pid = gpu[-1]
+                            # pid = "860165"
+                            cmd = "kill -9 %s" % pid
+                            print(cmd)
+                            os.system(cmd)
+                    idscheck_tasks.update_one({"_id": task["_id"]}, {"$set": {"Status": "Finished"}})
+                else:
+                    print("Not time yet")
+    except:
+        record_log("Cannot connect to database, therefore cannot check tasks automatically") 
+        

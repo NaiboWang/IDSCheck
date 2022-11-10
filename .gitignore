@@ -4,3 +4,4 @@ dist
 __pycache__
 idscheckserver/idscheckserver/dbconfig.py
 idscheckserver/idscheckserver/Mail.py
+idscheckserver/idscheckserver/idscheck_servers.json
