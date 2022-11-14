@@ -409,14 +409,14 @@ def gpu_notify(request):
             print(notify_user[0], notify_user[1])    
             nickname = notify_user[0]
             server_address = hostname + ".d2.comp.nus.edu.sg"
-            msg = """<p>
+            msg = """<p>(This is an automatically generated email by the program, <b>not Naibo himself</b> wants to kill your processes, but <b>some other user submit a request to the system that want you to free your resources</b>, please note. <b>You can reply to this email</b> if you have any questions.)</p><p>
             Dear {nickname} (your nickname, if you want to change it, just reply to this email),
             </p><p>
             We have detected that you are using more than 2 GPUs at server <b>{server_address}</b> which affects someone else to use the GPU resources. Thus, we have received other users' requests that need you to free your GPU resources for them to use.
             </p><p>
-            Therefore, please close your processes within 24 hours to make sure that <b>you only occupy at most 2 GPUs</b>, otherwise we <b>will kill all your processes after 24 hours</b>. 
+            Therefore, please close your processes within 24 hours to make sure that <b>you leave at least 2 GPUs for other users to use</b>, otherwise we <b>will kill all your processes after 24 hours</b>. 
             </p><p>
-            You can use <b>"ids"</b> command to check the GPU utilization, use <b>"idstop"</b> command to check the CPU utilization, and use <b>"idsgpu"</b> or <b>"idsnotify"</b> command to notify all other user(s) who occupied more than 2 GPUs currently (to use the commands, please use: pip3 install idscheck).
+            You can use <b>"ids"</b> command to check the GPU utilization, use <b>"idstop"</b> command to check the CPU utilization, and use <b>"idsgpu"</b> or <b>"idsnotify"</b> command to notify all other user(s) who occupied more than 2 GPUs currently (if not installed, please install to use the commands: <b>pip3 install idscheck</b>).
             </p><p>
             These are the rules of IDS GPU usage:
             </p><p>
