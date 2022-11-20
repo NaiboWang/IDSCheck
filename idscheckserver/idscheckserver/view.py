@@ -226,7 +226,12 @@ def get_gpu_info():
     GPUINFO = []
     GPU_REAl = []
     for line in processes:
-        content = ' '.join(line.split())
+        if line.find("No running") >= 0:
+            return_results = "\n".join(output_A)+'\n\n'
+            return return_results, GPU_REAl
+        else:
+            content = ' '.join(line.split())
+        print("content", content)
         parameters = content.split(" ")
         GPUINFO.append([parameters[1], parameters[7],
                        parameters[6], parameters[4]])
