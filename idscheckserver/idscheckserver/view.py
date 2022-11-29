@@ -410,12 +410,16 @@ def gpu_notify(request):
     notify, notify_users, avaiable_gpus = get_notify_users(request)
 
     if notify:
+        usernames, emails = [], []
         for notify_user in notify_users:
-            print(notify_user[0], notify_user[1])    
-            nickname = notify_user[0]
+            usernames.append(notify_user[0])
+            emails.append(notify_user[1])
+            print(notify_user[0], notify_user[1])
+        names = ", ".join(usernames)
+        for notify_user in notify_users:
             server_address = hostname + ".d2.comp.nus.edu.sg"
             msg = """<p>(This is an automatically generated email by the program, <b>not Naibo himself</b> wants to kill your processes, but <b>some other user submit a request to the system that want you to free your resources</b>, please note. <b>You can reply to this email</b> if you have any questions.)</p><p>
-            Dear {nickname} (your nickname, if you want to change it, just reply to this email),
+            Dear {names} (your nicknames, if you want to change it, just reply to this email),
             </p><p>
             We have detected that you are using more than 2 GPUs at server <b>{server_address}</b> which affects someone else to use the GPU resources. Thus, we have received other users' requests that need you to free your GPU resources for them to use.
             </p><p>
@@ -444,9 +448,9 @@ def gpu_notify(request):
             National University of Singapore
             </p>
             """.format(nickname=nickname, server_address=server_address)
-            email_address = notify_user[1]
-            Sample.main("Please free your GPU resources at %s server for other users" % hostname, msg, email_address, bcc_email)
-            idscheck_tasks.insert_one({"nickname": notify_user[0], "email": email_address, "bcc_nickname": bcc_nickname,"bcc_email": bcc_email, "server": hostname, "time": datetime.datetime.now(),  "final_handle_time": datetime.datetime.now() + datetime.timedelta(hours=24), "Status": "Pending"})
+            email = [notify_user[1]]
+            Sample.main("Please free your GPU resources at %s server for other users" % hostname, msg, email, bcc_email)
+            idscheck_tasks.insert_one({"nickname": notify_user[0], "email": email[0], "bcc_nickname": bcc_nickname,"bcc_email": bcc_email, "server": hostname, "time": datetime.datetime.now(),  "final_handle_time": datetime.datetime.now() + datetime.timedelta(hours=24), "Status": "Pending"})
         return HttpResponse('Notification has already sent to all users occupied more than two GPUs and also Bcc you (they will not know that it is you who submit this request, don\'t worry).\n')
     else:
         if len(avaiable_gpus) < 2:
