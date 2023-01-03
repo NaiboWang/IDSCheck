@@ -32,16 +32,27 @@ except:
 
 print("当前路径:", os.getcwd())
 
-try:
-    with open('idscheck_servers.json', 'r') as f:
-        USERLISTS = json.load(f)
-        print("USERLISTS", USERLISTS)
-        f.close()
-except:
-    with open('/home/techsupport/idscheckserver/idscheck_servers.json', 'r') as f: # for crontab, need to add path
-        USERLISTS = json.load(f)
-        print("USERLISTS", USERLISTS)
-        f.close()
+
+def fetch():
+    global USERLISTS
+    t = Timer(30, fetch)
+    t.start()
+    print("Refresh USERLISTS")
+    try:
+        with open('idscheck_servers.json', 'r') as f:
+            USERLISTS = json.load(f)
+            print("USERLISTS", USERLISTS)
+            f.close()
+    except:
+        # for crontab, need to add path
+        with open('/home/techsupport/idscheckserver/idscheck_servers.json', 'r') as f:
+            USERLISTS = json.load(f)
+            print("USERLISTS", USERLISTS)
+            f.close()
+
+
+fetch()
+
 
 class TimeUtil(object):
     @classmethod
@@ -75,6 +86,7 @@ class TimeUtil(object):
         else:
             raise Exception('dont parse timezone format')
 
+
 def record_log(info):
     print(info)
     with open('server.log', 'a') as f:
@@ -89,6 +101,7 @@ def find(arr, conditions):
                 return False
         return True
     return list(filter(func, arr))
+
 
 def generate_timestamp():
     current_GMT = time.gmtime()
@@ -139,8 +152,8 @@ def insert_log(request, command_name, output):
     # except:
     #     record_log("query_log: " + username + " " + hostname)
     username_info = find(USERLISTS, {"ip": request.META['REMOTE_ADDR'],
-                                            "hostname": hostname,
-                                            })[-1]
+                                     "hostname": hostname,
+                                     })[-1]
     try:
         username = username_info['username']
         nickname = username_info['nickname']
@@ -218,8 +231,8 @@ def get_gpu_info():
     # except:
     #     record_log("get_gpu_info: " + hostname)
     userlist = find(USERLISTS, {"hostname": hostname})
-    print("userlist", userlist)
-    output = PrettyTable(["GPUID", "User", 
+    # print("userlist", userlist)
+    output = PrettyTable(["GPUID", "User",
                          "Used GPU Memory", "Process Name", "PID"])
     output.align["GPUID"] = 'r'
     output.align["Used GPU Memory"] = 'r'
@@ -240,15 +253,27 @@ def get_gpu_info():
         c, std, err = run_cmd(
             'ps -p ' + parameters[4] + ' -o user', request=request)
         print(c, std, err)
-        username = std.decode("utf-8").split("\n")[1]
+        try:
+            username = std.decode("utf-8").split("\n")[1]
+        except:
+            username = "unknown"
         # GPUINFO[-1].insert(1, username)
+        exist = False
         for user in userlist:
             if user['username'] == username:
+                print("nickname", user['nickname'])
                 GPUINFO[-1].insert(1, user['nickname'])
                 GPU_REAl[-1].insert(1, user['nickname'])
                 GPU_REAl[-1].insert(2, user['email'])
                 GPU_REAl[-1].insert(3, username)
+                exist = True
                 break
+        if not exist:
+            GPUINFO[-1].insert(1, "unknown")
+            GPU_REAl[-1].insert(1, "unknown")
+            GPU_REAl[-1].insert(2, "naibowang@foxmail.com")
+            GPU_REAl[-1].insert(3, "unknown")
+
     # print(GPUINFO)
     for info in GPUINFO:
         output.add_row(info)
@@ -258,11 +283,13 @@ def get_gpu_info():
     return_results = "\n".join(output_A)+'\n\n' + output.get_string() + '\n'
     return return_results, GPU_REAl
 
+
 def hello(request):
     return_results, _ = get_gpu_info()
     insert_log(request, 'idscheck', return_results.split("\n"))
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
     return HttpResponse(return_results)
+
 
 def real_gpu(request):
     code, stdout, stderr = run_cmd('nvidia-smi', request=request)
@@ -327,8 +354,10 @@ def real_gpu(request):
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
     return HttpResponse(return_results)
 
+
 def gpu(request):
     return HttpResponse("Your tool is outdated, please update your tool to the latest version with the following command: \npip3 install idscheck --upgrade\n")
+
 
 def get_notify_users(request=None):
     hostname = socket.gethostname()
@@ -342,7 +371,7 @@ def get_notify_users(request=None):
         # except:
         #     record_log("get_notify_users: " + hostname)
         username_info = find(USERLISTS, {"ip": request.META['REMOTE_ADDR'],
-                                            "hostname": hostname})[-1]
+                                         "hostname": hostname})[-1]
         nickname = username_info['nickname']
     else:
         nickname = "unknown"
@@ -361,7 +390,7 @@ def get_notify_users(request=None):
     all_occupied_gpus = list(set(all_occupied_gpus))
 
     user_GPU = {}
-    
+
     for user in userList:
         user_GPU_info = userList[user]
         for gpu_info in user_GPU_info:
@@ -376,17 +405,18 @@ def get_notify_users(request=None):
     for user in user_GPU:
         print(user, user_GPU[user])
         if len(user_GPU[user]) > 2:
-            notify_users.add((userList[user][0][1], userList[user][0][2], userList[user][0][3]))
+            notify_users.add(
+                (userList[user][0][1], userList[user][0][2], userList[user][0][3]))
         if user == nickname:
             user_current_GPUS = set(user_GPU[user])
-    
+
     print("notify_users", notify_users)
     print("user_current_GPUS", user_current_GPUS)
 
-    if hostname.find("2") >=0:
-        gpus = set([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+    if hostname.find("2") >= 0:
+        gpus = set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
     else:
-        gpus = set([0,1,2,3,4,5,6,7])
+        gpus = set([0, 1, 2, 3, 4, 5, 6, 7])
 
     avaiable_gpus = list(gpus - set(all_occupied_gpus))
 
@@ -399,6 +429,7 @@ def get_notify_users(request=None):
     # notify = False
     notify_users = list(notify_users)
     return notify, notify_users, avaiable_gpus
+
 
 def gpu_notify(request):
     # code, stdout, stderr = run_cmd('nvidia-smi', request=request)
@@ -449,14 +480,17 @@ def gpu_notify(request):
             </p>
             """.format(nickname=nickname, server_address=server_address)
             email = [notify_user[1]]
-            Sample.main("Please free your GPU resources at %s server for other users" % hostname, msg, email, bcc_email)
-            idscheck_tasks.insert_one({"nickname": notify_user[0], "email": email[0], "bcc_nickname": bcc_nickname,"bcc_email": bcc_email, "server": hostname, "time": datetime.datetime.now(),  "final_handle_time": datetime.datetime.now() + datetime.timedelta(hours=24), "Status": "Pending"})
+            Sample.main("Please free your GPU resources at %s server for other users" %
+                        hostname, msg, email, bcc_email)
+            idscheck_tasks.insert_one({"nickname": notify_user[0], "email": email[0], "bcc_nickname": bcc_nickname, "bcc_email": bcc_email, "server": hostname, "time": datetime.datetime.now(
+            ),  "final_handle_time": datetime.datetime.now() + datetime.timedelta(hours=24), "Status": "Pending"})
         return HttpResponse('Notification has already sent to all users occupied more than two GPUs and also Bcc you (they will not know that it is you who submit this request, don\'t worry).\n')
     else:
         if len(avaiable_gpus) < 2:
             return HttpResponse('You are already using at least two GPUs (or you are using one GPU and another one GPU is available) now, therefore no notification is needed.\n')
         else:
             return HttpResponse('Still at least two GPUs (ID: %s) available now, therefore no notification is needed.\n' % avaiable_gpus)
+
 
 def top_all(request):
     code, stdout, stderr = run_cmd('top -b -n 1', request=request)
@@ -489,7 +523,7 @@ def top_all(request):
         output = " ".join(parameters)
         print(output)
         output_B += output + "\n"
-        
+
     return_results = "\n".join(output_A)+'\n' + output_B + '\n'
     insert_log(request, 'top_all', return_results)
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
@@ -528,7 +562,7 @@ def top(request):
         output = " ".join(parameters)
         print(output)
         output_B += output + "\n"
-        
+
     return_results = "\n".join(output_A)+'\n' + output_B + '\n'
     insert_log(request, 'top', return_results)
     # print('\nreturn:', code, '\nstdout:', stdout, '\nstderr:', stderr)
@@ -548,9 +582,10 @@ def kill_zombie_tasks():
     i = 0
     for line in lines:
         if line.find("N/A") >= 0 and line.find("W") >= 0:
-            GPUINFO.append([i, int(line.split("MiB")[0].split(" ")[-1]), int(line.split("MiB")[1].split(" ")[-1])])
+            GPUINFO.append([i, int(line.split("MiB")[0].split(
+                " ")[-1]), int(line.split("MiB")[1].split(" ")[-1])])
             i += 1
-        elif line.find("N/A  N/A") >=0:
+        elif line.find("N/A  N/A") >= 0:
             content = ' '.join(line.split())
             memory = int(line.split(" ")[-2].split("MiB")[0])
             pid = int(content.split(" ")[4])
@@ -564,22 +599,24 @@ def kill_zombie_tasks():
         for process in PROCESSINFO:
             if GPU[0] == process[0]:
                 displayed_memory += process[2]
-        if GPU[1] - displayed_memory > 5000: # Find zombie processes
+        if GPU[1] - displayed_memory > 5000:  # Find zombie processes
             print("find zombie processes at GPU %d" % GPU[0])
             zombie_GPUs.append(GPU[0])
     print("zombie_GPUs", zombie_GPUs)
     # zombie_GPUs = [0,1,2,3,4,5,6,7]
     for GPU in zombie_GPUs:
-        code, stdout, stderr = run_cmd('fuser -v /dev/nvidia'+str(GPU), request=request)
-        lines = stderr.decode("utf-8").split("\n")[1:] # Note that stderr is used here
+        code, stdout, stderr = run_cmd(
+            'fuser -v /dev/nvidia'+str(GPU), request=request)
+        # Note that stderr is used here
+        lines = stderr.decode("utf-8").split("\n")[1:]
         # print("lines", lines)
         lines_out = stdout.decode("utf-8")
         lines_out = lines_out.split()
         # print("lines_out", lines_out)
         # print("stderr", stderr)
-        # r = os.popen('fuser -v /dev/nvidia'+str(GPU))  
+        # r = os.popen('fuser -v /dev/nvidia'+str(GPU))
         # lines = r.read()
-        # print("lines", lines) 
+        # print("lines", lines)
         # r.close()
         i = -1
         for line in lines:
@@ -599,10 +636,11 @@ def kill_zombie_tasks():
     print("zombie_tasks", zombie_tasks)
     for task in zombie_tasks:
         # code, stdout, stderr = run_cmd('kill -9 '+str(task[2]), request=request)
-        idscheck_zombie.insert_one({"GPU": task[0], "user": task[1], "pid": task[2], "time": generate_timestamp(), "server": hostname})
+        idscheck_zombie.insert_one(
+            {"GPU": task[0], "user": task[1], "pid": task[2], "time": generate_timestamp(), "server": hostname})
         print("kill -9 "+str(task[2]))
     # print(PROCESSINFO)
-    
+
 
 if __name__ == "__main__":
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -611,7 +649,7 @@ if __name__ == "__main__":
     from dbconfig import *
     from Mail import Sample
     myclient = pymongo.MongoClient(
-    dbc, connect=False)
+        dbc, connect=False)
     mydb = myclient['ids']
     idscheck_logs = mydb["idscheck_logs"]
     idscheck_servers = mydb["idscheck_servers"]
@@ -630,7 +668,8 @@ if __name__ == "__main__":
     kill_zombie_tasks()
     try:
         notify, notify_users, avaiable_gpus = get_notify_users()
-        all_tasks = list(idscheck_tasks.find({"Status": "Pending", "server": hostname}))
+        all_tasks = list(idscheck_tasks.find(
+            {"Status": "Pending", "server": hostname}))
         # print(all_tasks)
         for task in all_tasks:
             print(task)
@@ -666,8 +705,10 @@ if __name__ == "__main__":
                 National University of Singapore
                 </p>
                 """.format(nickname=nickname, server_address=server_address, bcc_nickname=bcc_nickname)
-                Sample.main("Now at least 2 GPUs available at %s server" % hostname, msg, email_address, bcc_email)
-                idscheck_tasks.update_one({"_id": task["_id"]}, {"$set": {"Status": "Finished"}})
+                Sample.main("Now at least 2 GPUs available at %s server" %
+                            hostname, msg, email_address, bcc_email)
+                idscheck_tasks.update_one({"_id": task["_id"]}, {
+                                          "$set": {"Status": "Finished"}})
             else:
                 if task["final_handle_time"] < datetime.datetime.now():
                     msg = """<p style="font-size:16px">
@@ -694,7 +735,8 @@ if __name__ == "__main__":
                 National University of Singapore
                 </p>
                 """.format(nickname=nickname, server_address=server_address, bcc_nickname=bcc_nickname)
-                    Sample.main("Your processes has already been killed at server %s" % hostname, msg, email_address, bcc_email)
+                    Sample.main("Your processes has already been killed at server %s" %
+                                hostname, msg, email_address, bcc_email)
                     return_results, GPU_REAl = get_gpu_info()
                     # print(GPU_REAl)
                     for gpu in GPU_REAl:
@@ -704,9 +746,10 @@ if __name__ == "__main__":
                             cmd = "kill -9 %s" % pid
                             print(cmd)
                             os.system(cmd)
-                    idscheck_tasks.update_one({"_id": task["_id"]}, {"$set": {"Status": "Finished"}})
+                    idscheck_tasks.update_one({"_id": task["_id"]}, {
+                                              "$set": {"Status": "Finished"}})
                 else:
                     print("Not time yet")
     except:
-        record_log("Cannot connect to database, therefore cannot check tasks automatically") 
-        
+        record_log(
+            "Cannot connect to database, therefore cannot check tasks automatically")
